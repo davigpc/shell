@@ -54,7 +54,6 @@ int run_builtin(char **args) {
 
 // Executa uma linha de comando com pipes
 void run_pipeline(char *line) {
-    int background = 0;
     char *commands[MAX_PIPES];
     int cmd_count = 0;
 
@@ -82,12 +81,15 @@ void run_pipeline(char *line) {
             int bg = 0;
             char **args = parse_line(commands[i], &bg);
 
-            if (!run_builtin(args)) {
-                execvp(args[0], args);
-                perror("exec");
-                exit(EXIT_FAILURE);
+            // Verifica se é comando interno em pipeline
+            if (run_builtin(args)) {
+                fprintf(stderr, "Erro: comando interno '%s' não pode ser usado em pipeline.\n", args[0]);
+                exit(1);
             }
-            exit(0);
+
+            execvp(args[0], args);
+            perror("exec");
+            exit(EXIT_FAILURE);
         } else if (pid < 0) {
             perror("fork");
         }
@@ -97,7 +99,8 @@ void run_pipeline(char *line) {
         in_fd = pipefd[0];
     }
 
-    while (wait(NULL) > 0);  // Aguarda todos os filhos
+    // Espera todos os processos do pipeline
+    while (wait(NULL) > 0);
 }
 
 int main() {
